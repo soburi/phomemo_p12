@@ -48,6 +48,14 @@ def header(port):
         resp = port.read()
         #print(binascii.hexlify(resp), file=sys.stderr)
 
+def set_density(port, level):
+    # print density 1 (light) .. 4 (very dark), sniffed from "Print Master".
+    # Without it the printer uses a faint default after power-on;
+    # the setting persists until the printer is switched off.
+    # The printer sends no reply, so don't wait for one here.
+    port.write(bytes([0x1f, 0x11, 0x02, level]))
+    port.flush()
+
 def preprocess_image(data, width):
     with PIL.Image.open(io.BytesIO(data)) as src:
         src_w, src_h = src.size
@@ -110,6 +118,8 @@ def main():
     parser = argparse.ArgumentParser(description='Phomemo P12 printing command')
     parser.add_argument('--port', dest='port', required=True, help='Serial Port')
     parser.add_argument('--dots', dest='dots', default=96, type=int, help='Number of dots in tape width')
+    parser.add_argument('--density', dest='density', type=int, choices=range(1, 5), default=None,
+                        help='Print density 1 (light) to 4 (very dark). Printer default if not given.')
     parser.add_argument('filename', nargs='?', help='Filename of image to print. Using stdin if not given.')
 
     args = parser.parse_args()
@@ -127,6 +137,8 @@ def main():
         port = serial.Serial(args.port, timeout=10)
 
     header(port)
+    if args.density is not None:
+        set_density(port, args.density)
     print_image(port, image)
     tape_feed(port)
 
